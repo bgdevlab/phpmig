@@ -30,6 +30,9 @@ use Symfony\Component\Console\Command\Command,
  */
 abstract class AbstractCommand extends Command
 {
+    public static $MIGTYPE_KEY_STANDARD = '.';
+    public static $MIGTYPE_KEY_CUSTOM = 'C';
+    
     /**
      * @var \ArrayAccess
      */
@@ -123,7 +126,17 @@ abstract class AbstractCommand extends Command
             throw new \RuntimeException($bootstrap . " must return container with array at phpmig.migrations");
         }
 
-        $migrations = $container['phpmig.migrations'];
+        if ($this->usesMultipleMigrationPaths()) {
+            // quick hack to track the associatied array the migration file came from - used in display
+            $migrations = array_merge(
+                array_values($container['phpmig.migrations'][AbstractCommand::$MIGTYPE_KEY_CUSTOM]),
+                array_values($container['phpmig.migrations'][AbstractCommand::$MIGTYPE_KEY_STANDARD])
+            );
+        } else {
+            // traditional phpmig code.
+        	$migrations = $container['phpmig.migrations'];
+        }
+
 
         if (!is_array($migrations)) {
             throw new \RuntimeException("phpmig.migrations must be an array of paths to migrations");
@@ -131,7 +144,8 @@ abstract class AbstractCommand extends Command
 
         $versions = array();
         $names = array();
-        foreach($migrations as $path) {
+
+        foreach ($migrations as $path) {
             if (!preg_match('/^[0-9]+/', basename($path), $matches)) {
                 throw new \InvalidArgumentException(sprintf('The file "%s" does not have a valid migration filename', $path));
             }
@@ -181,6 +195,7 @@ abstract class AbstractCommand extends Command
             $migration->setOutput($output); // inject output
 
             $versions[$version] = $migration;
+
         }
 
         ksort($versions);
@@ -188,11 +203,42 @@ abstract class AbstractCommand extends Command
         /**
          * Setup migrator
          */
-        $container['phpmig.migrator'] = $container->share(function() use ($container, $adapter, $output) {
+        $container['phpmig.migrator'] = $container->share(function () use ($container, $adapter, $output) {
             return new Migrator($adapter, $container, $output);
         });
 
         $this->setMigrations($versions);
+    }
+
+    protected function usesMultipleMigrationPaths()
+    {
+        if (!isset($this->getContainer()['phpmig.migrations'])) {
+            return false;
+        }
+        if (array_key_exists(AbstractCommand::$MIGTYPE_KEY_STANDARD, $this->getContainer()['phpmig.migrations']) && 
+            array_key_exists(AbstractCommand::$MIGTYPE_KEY_CUSTOM, $this->getContainer()['phpmig.migrations'])) {
+            return true;
+        }
+
+        return false;
+    }
+
+
+    protected function getKeyName($migrationName)
+    {
+        $migrations = $this->getContainer()['phpmig.migrations'];
+        
+        foreach ($migrations as $type => $files) {
+            
+            foreach ($files as $file) {
+        
+                if (strpos($file, $migrationName) !== FALSE) {
+                    return $type;
+                }
+            }
+        }
+        return "?";
+
     }
 
     /**

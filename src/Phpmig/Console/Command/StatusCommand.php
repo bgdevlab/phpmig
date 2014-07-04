@@ -53,7 +53,7 @@ EOT
         $output->writeln("-----------------------------------------");
 
         $versions = $this->getAdapter()->fetchAll();
-        foreach($this->getMigrations() as $migration) {
+        foreach ($this->getMigrations() as $migration) {
             
             if (in_array($migration->getVersion(), $versions)) {
                 $status = "     <info>up</info> ";
@@ -61,15 +61,16 @@ EOT
             } else {
                 $status = "   <error>down</error> ";
             }
+            $key = $this->getKeyName($migration->getName());
 
             $output->writeln(
                 $status . 
-                sprintf(" %14s ", $migration->getVersion()) . 
+                sprintf(" %14s ", $migration->getVersion()) . $key .
                 " <comment>" . $migration->getName() . "</comment>"
             );
         }
 
-        foreach($versions as $missing) {
+        foreach ($versions as $missing) {
             $output->writeln(
                 '   <error>up</error> ' . 
                 sprintf(" %14d ", $missing) . 
@@ -79,6 +80,7 @@ EOT
 
         // print status
         $output->writeln("");
+
         return;
     }
 }

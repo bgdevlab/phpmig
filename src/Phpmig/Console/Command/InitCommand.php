@@ -117,6 +117,14 @@ use \Phpmig\Adapter,
     return glob(__DIR__ . DIRECTORY_SEPARATOR . '$migrations/*.php');
 };
 
+\$container['phpmig.migrations.new'] = function() {
+    return array(
+        "."=>glob(__DIR__ . DIRECTORY_SEPARATOR . '$migrations/*.php'),
+        "+"=>glob(__DIR__ . DIRECTORY_SEPARATOR . 'client/*.php')
+    );
+};
+
+
 return \$container;
 PHP;
 
