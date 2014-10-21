@@ -212,11 +212,12 @@ abstract class AbstractCommand extends Command
 
     protected function usesMultipleMigrationPaths()
     {
-        if (!isset($this->getContainer()['phpmig.migrations'])) {
+        $container = $this->getContainer();
+        if (!isset($container['phpmig.migrations'])) {
             return false;
         }
-        if (array_key_exists(AbstractCommand::$MIGTYPE_KEY_STANDARD, $this->getContainer()['phpmig.migrations']) && 
-            array_key_exists(AbstractCommand::$MIGTYPE_KEY_CUSTOM, $this->getContainer()['phpmig.migrations'])) {
+        if (array_key_exists(AbstractCommand::$MIGTYPE_KEY_STANDARD, $container['phpmig.migrations']) && 
+            array_key_exists(AbstractCommand::$MIGTYPE_KEY_CUSTOM, $container['phpmig.migrations'])) {
             return true;
         }
 
@@ -226,7 +227,8 @@ abstract class AbstractCommand extends Command
 
     protected function getKeyName($migrationName)
     {
-        $migrations = $this->getContainer()['phpmig.migrations'];
+        $container  = $this->getContainer();
+        $migrations = $container['phpmig.migrations'];
         
         foreach ($migrations as $type => $files) {
             
