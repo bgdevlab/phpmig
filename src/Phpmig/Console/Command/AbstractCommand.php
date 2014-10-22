@@ -32,7 +32,7 @@ abstract class AbstractCommand extends Command
 {
     public static $MIGTYPE_KEY_STANDARD = '.';
     public static $MIGTYPE_KEY_CUSTOM = 'C';
-    
+
     /**
      * @var \ArrayAccess
      */
@@ -59,6 +59,7 @@ abstract class AbstractCommand extends Command
     protected function configure()
     {
         $this->addOption('--bootstrap', '-b', InputArgument::OPTIONAL, 'The bootstrap file to load');
+        $this->addOption('--propertyfile', '-p', InputArgument::OPTIONAL, 'The custom properties file to load');
     }
 
     /**
@@ -71,30 +72,35 @@ abstract class AbstractCommand extends Command
         /**
          * Bootstrap
          */
-        $bootstrap = $input->getOption('bootstrap');
+        $bootstrap      = $input->getOption('bootstrap');
+        $propertiesFile = $input->getOption('propertyfile');
 
         if (null === $bootstrap) {
             $bootstrap = 'phpmig.php';
         }
 
+        if (null === $propertiesFile) {
+            $propertiesFile = "build.properties";
+        }
+
         $cwd = getcwd();
 
-        $locator = new FileLocator(array(
+        $locator   = new FileLocator(array(
             $cwd . DIRECTORY_SEPARATOR . 'config',
         ));
-
         $bootstrap = $locator->locate($bootstrap, $cwd, $first = true);
         $this->setBootstrap($bootstrap);
+
+        $props = $this->getCustomProperties($output, $propertiesFile, $cwd);
 
         /**
          * Prevent scope clashes
          */
-        $func = function() use ($bootstrap) {
+        $func = function () use ($bootstrap, $props) {
             return require $bootstrap;
         };
 
         $container = $func();
-
         if (!($container instanceof \ArrayAccess)) {
             throw new \RuntimeException($bootstrap . " must return object of type \ArrayAccess");
         }
@@ -127,14 +133,14 @@ abstract class AbstractCommand extends Command
         }
 
         if ($this->usesMultipleMigrationPaths()) {
-            // quick hack to track the associatied array the migration file came from - used in display
+            // quick hack to track the associated array the migration file came from - used in display
             $migrations = array_merge(
                 array_values($container['phpmig.migrations'][AbstractCommand::$MIGTYPE_KEY_CUSTOM]),
                 array_values($container['phpmig.migrations'][AbstractCommand::$MIGTYPE_KEY_STANDARD])
             );
         } else {
             // traditional phpmig code.
-        	$migrations = $container['phpmig.migrations'];
+            $migrations = $container['phpmig.migrations'];
         }
 
 
@@ -143,7 +149,7 @@ abstract class AbstractCommand extends Command
         }
 
         $versions = array();
-        $names = array();
+        $names    = array();
 
         foreach ($migrations as $path) {
             if (!preg_match('/^[0-9]+/', basename($path), $matches)) {
@@ -166,7 +172,7 @@ abstract class AbstractCommand extends Command
 
             if (isset($names[$class])) {
                 throw new \InvalidArgumentException(sprintf(
-                    'Migration "%s" has the same name as "%s"', 
+                    'Migration "%s" has the same name as "%s"',
                     $path,
                     $names[$class]
                 ));
@@ -176,7 +182,7 @@ abstract class AbstractCommand extends Command
             require_once $path;
             if (!class_exists($class)) {
                 throw new \InvalidArgumentException(sprintf(
-                    'Could not find class "%s" in file "%s"', 
+                    'Could not find class "%s" in file "%s"',
                     $class,
                     $path
                 ));
@@ -210,14 +216,16 @@ abstract class AbstractCommand extends Command
         $this->setMigrations($versions);
     }
 
-    protected function usesMultipleMigrationPaths()
+    protected
+    function usesMultipleMigrationPaths()
     {
         $container = $this->getContainer();
         if (!isset($container['phpmig.migrations'])) {
             return false;
         }
-        if (array_key_exists(AbstractCommand::$MIGTYPE_KEY_STANDARD, $container['phpmig.migrations']) && 
-            array_key_exists(AbstractCommand::$MIGTYPE_KEY_CUSTOM, $container['phpmig.migrations'])) {
+        if (array_key_exists(AbstractCommand::$MIGTYPE_KEY_STANDARD, $container['phpmig.migrations']) &&
+            array_key_exists(AbstractCommand::$MIGTYPE_KEY_CUSTOM, $container['phpmig.migrations'])
+        ) {
             return true;
         }
 
@@ -225,20 +233,22 @@ abstract class AbstractCommand extends Command
     }
 
 
-    protected function getKeyName($migrationName)
+    protected
+    function getKeyName($migrationName)
     {
         $container  = $this->getContainer();
         $migrations = $container['phpmig.migrations'];
-        
+
         foreach ($migrations as $type => $files) {
-            
+
             foreach ($files as $file) {
-        
+
                 if (strpos($file, $migrationName) !== FALSE) {
                     return $type;
                 }
             }
         }
+
         return "?";
 
     }
@@ -249,18 +259,21 @@ abstract class AbstractCommand extends Command
      * @var string
      * @return AbstractCommand
      */
-    public function setBootstrap($bootstrap) 
+    public
+    function setBootstrap($bootstrap)
     {
         $this->bootstrap = $bootstrap;
+
         return $this;
     }
 
     /**
      * Get bootstrap
      *
-     * @return string 
+     * @return string
      */
-    public function getBootstrap()
+    public
+    function getBootstrap()
     {
         return $this->bootstrap;
     }
@@ -271,9 +284,11 @@ abstract class AbstractCommand extends Command
      * @param array $migrations
      * @return AbstractCommand
      */
-    public function setMigrations(array $migrations) 
+    public
+    function setMigrations(array $migrations)
     {
         $this->migrations = $migrations;
+
         return $this;
     }
 
@@ -282,7 +297,8 @@ abstract class AbstractCommand extends Command
      *
      * @return array
      */
-    public function getMigrations()
+    public
+    function getMigrations()
     {
         return $this->migrations;
     }
@@ -293,9 +309,11 @@ abstract class AbstractCommand extends Command
      * @var \ArrayAccess
      * @return AbstractCommand
      */
-    public function setContainer(\ArrayAccess $container) 
+    public
+    function setContainer(\ArrayAccess $container)
     {
         $this->container = $container;
+
         return $this;
     }
 
@@ -304,7 +322,8 @@ abstract class AbstractCommand extends Command
      *
      * @return \ArrayAccess
      */
-    public function getContainer()
+    public
+    function getContainer()
     {
         return $this->container;
     }
@@ -315,9 +334,11 @@ abstract class AbstractCommand extends Command
      * @param AdapterInterface $adapter
      * @return AbstractCommand
      */
-    public function setAdapter(AdapterInterface $adapter)
+    public
+    function setAdapter(AdapterInterface $adapter)
     {
         $this->adapter = $adapter;
+
         return $this;
     }
 
@@ -326,9 +347,75 @@ abstract class AbstractCommand extends Command
      *
      * @return AdapterInterface
      */
-    public function getAdapter()
+    public
+    function getAdapter()
     {
         return $this->adapter;
+    }
+
+    /**
+     * Custom  property load
+     * @param OutputInterface $output
+     * @param                 $propertiesFile
+     * @param                 $directory
+     * @return mixed
+     * @throws \RuntimeException
+     */
+    protected
+    function getCustomProperties(OutputInterface $output, $propertiesFile, $directory)
+    {
+        $configLocator = new FileLocator(array(
+            dirname($propertiesFile),
+            $directory . DIRECTORY_SEPARATOR . 'config',
+        ));
+
+        $propertiesFile        = $configLocator->locate(basename($propertiesFile), dirname($propertiesFile), $first = true);
+        $props                 = parse_ini_file($propertiesFile);
+        $props['propertyfile'] = $propertiesFile;
+
+        $mandatoryProps = array('db.name'                 => 'the database name',
+                                'db.host'                 => 'the database host',
+                                'db.user'                 => 'the database username',
+                                'db.migration.schema'     => 'the database schema where the migrations table is stored.',
+                                'migration.folder'        => 'standard migrations folder',
+                                'migration.client.folder' => 'client-site specific migrations folder');
+
+        $explanationList = null;
+        foreach ($mandatoryProps as $keyCheck => $explanation) {
+            if (!isset($props[$keyCheck]) || empty($props[$keyCheck])) {
+                $explanationList .= sprintf("\tmissing key (or empty value) '%s' - %s\n", $keyCheck, $explanation);
+            }
+        }
+
+        if ($explanationList != null) {
+            if ($output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE) {
+                print_r($props);
+            }
+            throw new \RuntimeException("!! The property file $propertiesFile is invalid.\n" . $explanationList);
+        }
+
+        /**
+         * Check the properties loaded in current dir OR for absolute path for the migration folders...
+         * transform any relative directories to absolute
+         * don't progress if they are empty ( locate throws an exception ).
+         */
+        $migLocator = new FileLocator(array($directory));
+        try {
+            $props['migration.folder']        = $migLocator->locate($props['migration.folder']);
+            $props['migration.client.folder'] = $migLocator->locate($props['migration.client.folder']);
+
+        } catch (\InvalidArgumentException $e) {
+            if ($output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE) {
+                print_r($props);
+            }
+            throw $e;
+        }
+
+        if ($output->getVerbosity() >= OutputInterface::VERBOSITY_VERBOSE) {
+            print_r($props);
+        }
+
+        return $props;
     }
 
 }

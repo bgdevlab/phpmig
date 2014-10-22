@@ -6,7 +6,8 @@
 namespace Phpmig\Console\Command;
 
 use Symfony\Component\Console\Input\InputInterface,
-    Symfony\Component\Console\Output\OutputInterface;
+    Symfony\Component\Console\Output\OutputInterface,
+    Symfony\Component\Console\Input\InputArgument;
 
 /**
  * This file is part of phpmig
@@ -29,6 +30,7 @@ class InitCommand extends AbstractCommand
      */
     protected function configure()
     {
+        $this->addOption('--directory', '-d', InputArgument::OPTIONAL, 'The directory to create the initialisation in.');
         $this->setName('init')
              ->setDescription('Initialise this directory for use with phpmig')
              ->setHelp(<<<EOT
