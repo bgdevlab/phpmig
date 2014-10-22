@@ -34,7 +34,7 @@ class InitCommand extends AbstractCommand
         $this->setName('init')
              ->setDescription('Initialise this directory for use with phpmig')
              ->setHelp(<<<EOT
-The <info>init</info> command creates a skeleton bootstrap file and a migrations directory
+The <info>init</info> command creates a skeleton bootstrap file, a propertyfile file and a migrations directory
 
 <info>phpmig init</info>
 
@@ -48,12 +48,19 @@ EOT
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $cwd = getcwd();
-        $bootstrap = $cwd . DIRECTORY_SEPARATOR . 'phpmig.php'; 
+        $directory = $input->getOption('directory');
+        if (null === $directory) {
+            $directory = $cwd;
+        }
+        
+        $bootstrap = $directory . DIRECTORY_SEPARATOR . 'phpmig.php'; 
+        $propertyfile = $directory . DIRECTORY_SEPARATOR . 'build.properties';
         $relative = 'migrations';
-        $migrations = $cwd . DIRECTORY_SEPARATOR . $relative;
-
-        $this->initMigrationsDir($migrations, $output);
-        $this->initBootstrap($bootstrap, $relative, $output);
+        
+        $this->initMigrationsDir($directory . DIRECTORY_SEPARATOR . $relative, $output);
+        $this->initMigrationsDir($directory . DIRECTORY_SEPARATOR . 'migrations.client', $output);
+        $this->initBootstrap($bootstrap, $directory, $output);
+        $this->initPropertiesFile($propertyfile, $directory, $output);
     }
 
     /**
@@ -86,10 +93,10 @@ EOT
     }
 
     /**
-     * Create bootstrap
+     * Create propertyfile
      *
-     * @param string $bootstrap where to put bootstrap file
-     * @param string $migrations path to migrations dir relative to bootstrap
+     * @param string $bootstrap where to put propertyfile file
+     * @param string $migrations path to migrations dir relative to propertyfile
      * @return void
      */
     protected function initBootstrap($bootstrap, $migrations, OutputInterface $output)
@@ -105,24 +112,43 @@ EOT
         $contents = <<<PHP
 <?php
 
+define('TRACK_MIGRATIONS_IN_DB', true);
+
 use \Phpmig\Adapter,
-    \Phpmig\Pimple\Pimple;
+    \Phpmig\Pimple\Pimple,
+    \Phpmig\Console\Command\AbstractCommand as PhpMig;
 
 \$container = new Pimple();
 
-\$container['phpmig.adapter'] = \$container->share(function() {
-    // replace this with a better Phpmig\Adapter\AdapterInterface 
-    return new Adapter\File\Flat(__DIR__ . DIRECTORY_SEPARATOR . '$migrations/.migrations.log');
+\$container['db'] = \$container->share(function () use (\$props) {
+    \$pdo = new PDO(sprintf('pgsql:dbname=%s;host=%s', \$props['db.name'], \$props['db.host']), \$props['db.user'], '');
+    \$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    return \$pdo;
 });
 
-\$container['phpmig.migrations'] = function() {
-    return glob(__DIR__ . DIRECTORY_SEPARATOR . '$migrations/*.php');
+if (TRACK_MIGRATIONS_IN_DB) {
+    \$container['phpmig.adapter'] = \$container->share(function () use (\$container, \$props) {
+        return new Adapter\PDO\SqlPgsql(\$container['db'], 'migrations', \$props['db.migration.schema']);
+    });
+} else {
+    \$container['phpmig.adapter'] = \$container->share(function() {
+        // replace this with a better Phpmig\Adapter\AdapterInterface 
+        return new Adapter\File\Flat(__DIR__ . DIRECTORY_SEPARATOR . '$migrations/.migrations.log');
+    });
+}
+
+\$container['phpmig.migrations'] = function () use (\$props) {
+    return array(
+        PhpMig::\$MIGTYPE_KEY_STANDARD => glob(\$props['migration.folder'] . '/*.php'),
+        PhpMig::\$MIGTYPE_KEY_CUSTOM   => glob(\$props['migration.client.folder'] . '/*.php')
+    );
 };
 
 \$container['phpmig.migrations.new'] = function() {
     return array(
-        "."=>glob(__DIR__ . DIRECTORY_SEPARATOR . '$migrations/*.php'),
-        "+"=>glob(__DIR__ . DIRECTORY_SEPARATOR . 'client/*.php')
+        PhpMig::\$MIGTYPE_KEY_STANDARD => glob(\$props['migration.folder'] . '/*.php'),
+        PhpMig::\$MIGTYPE_KEY_CUSTOM   => glob(\$props['migration.client.folder'] . '/*.php')            
     );
 };
 
@@ -141,7 +167,46 @@ PHP;
         );
         return;
     }
-}
 
+    /**
+     * Create propertyfile
+     *
+     * @param string $propertyfile where to put propertyfile file
+     * @param string $migrations path to migrations dir relative to propertyfile
+     * @return void
+     */
+    protected function initPropertiesFile($propertyfile, $migrations, OutputInterface $output)
+    {
+        if (file_exists($propertyfile)) {
+            throw new \RuntimeException(sprintf('The file "%s" already exists', $propertyfile));
+        }
+
+        if (!is_writeable(dirname($propertyfile))) {
+            throw new \RuntimeException(sprintf('THe file "%s" is not writeable', $propertyfile));
+        }
+
+        $contents = <<<PHP
+db.user=postgres
+db.name=your_database_name
+db.host=localhost
+db.migration.schema=sysops
+
+migration.folder=migrations
+migration.client.folder=migrations.client
+PHP;
+
+        if (false === file_put_contents($propertyfile, $contents)) {
+            throw new \RuntimeException('THe file "%s" could not be written to', $propertyfile);
+        }
+
+        $output->writeln(
+            '<info>+f</info> ' .
+            str_replace(getcwd(), '.', $propertyfile) .
+            ' <comment>Specify the properties here</comment>'
+        );
+        return;
+    }
+
+}
 
 

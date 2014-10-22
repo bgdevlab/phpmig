@@ -268,6 +268,24 @@ You can also rollback only a specific migration using the down command
 
     $ phpmig down 20111101000144
 
+branch 0.4
+==========
+ * 2 migrations folders exist, intention is to use 1 for common migrations and the other for migrations that vary (e.g. client/site/app specific)
+    * this is controlled by 2 key/value property pairs ( see -p ), the keys are `migration.folder` and `migration.client.folder`
+    * their values can be relative or absolute filepaths.
+ * a -p option is available for specifying a properties file to load, this is required
+ * viewing the loaded properties is available by specifying a higher verbosinty level -v -vv -vvv
+ * the `init` command additionally generates a properties file
+        
+        [db.user] => postgres
+        [db.name] => your_database_name
+        [db.host] => localhost
+        [db.migration.schema] => sysops
+        [migration.folder] => /kiosk-db/n/migrations
+        [migration.client.folder] => migrations.client
+ * 
+        
+
 Todo
 ----
 
