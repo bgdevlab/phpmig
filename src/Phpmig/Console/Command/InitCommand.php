@@ -121,7 +121,7 @@ use \Phpmig\Adapter,
 \$container = new Pimple();
 
 \$container['db'] = \$container->share(function () use (\$props) {
-    \$pdo = new PDO(sprintf('pgsql:dbname=%s;host=%s', \$props['db.name'], \$props['db.host']), \$props['db.user'], '');
+    \$pdo = new PDO(sprintf('pgsql:dbname=%s;host=%s;password=%s', \$props['db.name'], \$props['db.host'], \$props['db.password']), \$props['db.user'], '');
     \$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     return \$pdo;
@@ -157,7 +157,7 @@ return \$container;
 PHP;
 
         if (false === file_put_contents($bootstrap, $contents)) {
-            throw new \RuntimeException('THe file "%s" could not be written to', $bootstrap);
+            throw new \RuntimeException('The file "%s" could not be written to', $bootstrap);
         }
 
         $output->writeln(
@@ -189,6 +189,7 @@ PHP;
 db.user=postgres
 db.name=your_database_name
 db.host=localhost
+db.password=password
 db.migration.schema=sysops
 
 migration.folder=migrations
