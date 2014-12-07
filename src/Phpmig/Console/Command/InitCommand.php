@@ -116,7 +116,7 @@ EOT
         $contents = <<<PHP
 <?php
 
-define('TRACK_MIGRATIONS_IN_DB', true);
+define('TRACK_MIGRATIONS_IN_DB', false);
 
 use \Phpmig\Utility,
     \Phpmig\Adapter,
@@ -134,14 +134,14 @@ if (TRACK_MIGRATIONS_IN_DB) {
         return \$dbh;
     });
 
-    \$container['phpmig.adapter'] = \$container->share(function() use (\$container) {
-        return new Adapter\PDO\Sql(\$container['db'], 'migrations');
-    });
-
     //\$container['phpmig.adapter'] = \$container->share(function() use (\$container) {
-    //    \$p = \$container['properties'];
-    //    return new Adapter\PDO\SqlPgsql(\$container['db'], 'migrations', \$p['db.migration.schema']);
+    //    return new Adapter\PDO\Sql(\$container['db'], 'migrations');
     //});
+
+    \$container['phpmig.adapter'] = \$container->share(function() use (\$container) {
+        \$p = \$container['properties'];
+        return new Adapter\PDO\SqlPgsql(\$container['db'], 'migrations', \$p['db.migration.schema']);
+    });
 
 
 } else {
@@ -159,10 +159,38 @@ if (TRACK_MIGRATIONS_IN_DB) {
     \$p = \$container['properties'];
     return array_merge(
         glob(\$p['migration.app.folder'].'/*.php'),
+        glob(\$p['migration.client.folder'].'/*.php'),
         glob(\$p['migration.site.folder'].'/*.php')
     );
 };
 
+// Using full words to describe the migration's path.
+\$container['phpmig.glyphs.maxlength'] = 7;
+\$container['phpmig.glyphs'] = \$container->protect(function (\$migration) use (\$container) {
+
+    \$glyph = "?";
+    \$p = \$container['properties'];
+
+    foreach (\$container['phpmig.migrations'] as \$m) {
+        \$position = strpos(\$m, ('/' . \$migration->getVersion()));
+        if (\$position !== false) {
+            switch (substr(\$m, 0, \$position)) {
+                case (\$p['migration.app.folder']) :
+                    \$glyph = 'App';
+                    break;
+                case (\$p['migration.client.folder']) :
+                    \$glyph = 'Client';
+                    break;
+                case (\$p['migration.site.folder']) :
+                    \$glyph = 'Site';
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    return \$glyph;
+});
 return \$container;
 
 PHP;
@@ -205,6 +233,7 @@ db.migration.schema=migrations_schema
 flatfile.migration.logfile=migrations/migrations.log
 
 migration.app.folder=migrations
+migration.client.folder=migrations.client
 migration.site.folder=migrations.site
 PHP;
 
